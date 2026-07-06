@@ -11,6 +11,7 @@ interface DemoCategory {
   title: string;
   icon: string;
   prompts: string[];
+  note?: string;
 }
 
 const CATEGORIZED_PROMPTS: DemoCategory[] = [
@@ -19,8 +20,10 @@ const CATEGORIZED_PROMPTS: DemoCategory[] = [
     icon: '🏠',
     prompts: [
       "I want to buy a 2-bedroom apartment in Bucharest, budget €140k.",
-      "I’m looking for an apartment in Bucharest. My budget is around €120,000.",
-      "Looking to purchase a family home in Pipera, 3 bedrooms, budget up to €300k."
+      "I’m looking for a 2-bedroom apartment in Floreasca with a budget around €140,000.",
+      "Looking to purchase a family home in Pipera, 3 bedrooms, budget up to €300k.",
+      "I want a premium 2-bedroom apartment near Herastrau Park, budget around €220k.",
+      "Do you have a 2-bedroom apartment in Cluj-Napoca around €150k?"
     ]
   },
   {
@@ -29,16 +32,20 @@ const CATEGORIZED_PROMPTS: DemoCategory[] = [
     prompts: [
       "We need to rent a 3-bedroom family house in Bucharest, up to €1,600/month.",
       "I’m looking to rent a studio in central Bucharest, budget around €600/month.",
-      "Do you have a 2-bedroom apartment for rent in Dorobanti?"
+      "Do you have a 2-bedroom apartment for rent in Dorobanti?",
+      "I need a furnished studio in Cluj near the university, budget around €550/month.",
+      "We are looking for a luxury villa for rent in Pipera, around €2,500/month."
     ]
   },
   {
     title: 'Investing',
     icon: '📈',
     prompts: [
-      "I’m looking for an investment property in Romania around €100k.",
-      "Do you have buy-to-let properties in Bucharest with good rental yield?",
-      "I want a property that already has a tenant and generates rental income."
+      "I’m looking for an investment property in Bucharest around €100k.",
+      "Do you have a buy-to-let property in Militari with rental yield?",
+      "I want a property that already has a tenant and generates rental income.",
+      "Show me an Airbnb-style investment apartment in Bucharest around €130k.",
+      "I care mostly about ROI and rental yield. What options do you have?"
     ]
   },
   {
@@ -47,32 +54,45 @@ const CATEGORIZED_PROMPTS: DemoCategory[] = [
     prompts: [
       "I’d like to schedule a viewing.",
       "My name is Sam and my phone number is +40712345678.",
-      "Tomorrow afternoon works for me."
-    ]
+      "Tomorrow afternoon works for me.",
+      "Can I speak with an agent about this property?"
+    ],
+    note: "Use these after Sofia shows a property card."
   },
   {
     title: 'Selling',
     icon: '🏷️',
     prompts: [
       "I want to sell my apartment in Floreasca. Can you help me get a valuation?",
-      "I have a 2-bedroom apartment in Bucharest and I want to know how much it is worth."
+      "I have a 2-bedroom apartment in Bucharest and I want to know how much it is worth.",
+      "Can your team help me sell my house in Pipera?"
     ]
   },
   {
-    title: 'No Match Cases',
+    title: 'Edge Cases / No Match',
     icon: '❌',
     prompts: [
-      "I want to buy a 2-bedroom apartment in Brasov, budget €120k.",
-      "I need a 5-bedroom house in Bucharest for €80,000."
-    ]
+      "I need a 5-bedroom house in Bucharest for €80,000.",
+      "I want to rent a 4-bedroom villa in Cluj for €500/month.",
+      "I want to buy a beachfront villa in Bucharest under €100k."
+    ],
+    note: "Use these to test how Sofia handles unavailable requests."
   }
 ];
 
 export default function LeftPanel({ onScenarioSelect, isTyping }: LeftPanelProps) {
-  const [activeCategory, setActiveCategory] = useState<number | null>(0);
+  // Buying (0), Renting (1), and Viewing & Leads (3) are open by default
+  const [openCategories, setOpenCategories] = useState<Record<number, boolean>>({
+    0: true,
+    1: true,
+    3: true
+  });
 
   const toggleCategory = (index: number) => {
-    setActiveCategory(activeCategory === index ? null : index);
+    setOpenCategories(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
   };
 
   return (
@@ -107,7 +127,7 @@ export default function LeftPanel({ onScenarioSelect, isTyping }: LeftPanelProps
         
         <div className="space-y-1.5 pr-1">
           {CATEGORIZED_PROMPTS.map((cat, catIdx) => {
-            const isOpen = activeCategory === catIdx;
+            const isOpen = !!openCategories[catIdx];
             return (
               <div key={catIdx} className="border border-slate-100 rounded-lg overflow-hidden bg-white">
                 <button
@@ -124,6 +144,11 @@ export default function LeftPanel({ onScenarioSelect, isTyping }: LeftPanelProps
                 </button>
                 {isOpen && (
                   <div className="p-2 bg-slate-50/50 border-t border-slate-50 space-y-1.5">
+                    {cat.note && (
+                      <p className="text-[10px] text-slate-400 italic mb-1.5 px-1 leading-normal">
+                        {cat.note}
+                      </p>
+                    )}
                     {cat.prompts.map((prompt, promptIdx) => (
                       <button
                         key={promptIdx}
@@ -157,7 +182,7 @@ export default function LeftPanel({ onScenarioSelect, isTyping }: LeftPanelProps
             'Sends Telegram alerts to sales',
           ].map((point, i) => (
             <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-600">
-              <svg className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <svg className="w-3.5 h-3.5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
               {point}
