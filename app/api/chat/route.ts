@@ -11,7 +11,7 @@ import { buildMockResponse } from '@/lib/mockResponse';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { session_id, user_message, message_history, current_lead, current_lead_capture } = body;
+    const { session_id, user_message, message_history, current_lead, current_lead_capture, last_properties } = body;
 
     if (!user_message || typeof user_message !== 'string') {
       return NextResponse.json(
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'application/json',
             ...(apiKey ? { 'X-Demo-Key': apiKey } : {}),
           },
-          body: JSON.stringify({ session_id, user_message, message_history, current_lead, current_lead_capture }),
+          body: JSON.stringify({ session_id, user_message, message_history, current_lead, current_lead_capture, last_properties }),
           signal: controller.signal,
         });
 

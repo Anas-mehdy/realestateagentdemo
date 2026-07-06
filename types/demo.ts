@@ -113,6 +113,8 @@ export interface ChatRequest {
   user_message: string;
   message_history: { role: MessageRole; content: string }[];
   current_lead?: Lead;
+  current_lead_capture?: LeadCapture;
+  last_properties?: Property[];
 }
 
 export interface ChatResponse {

@@ -8,6 +8,7 @@ import {
   ChatRequest,
   ChatResponse,
   Lead,
+  Property,
   EMPTY_LEAD,
   EMPTY_LEAD_CAPTURE,
 } from '@/types/demo';
@@ -111,12 +112,23 @@ export default function RealEstateDemoPage() {
         const updatedMessages = [...state.messages, userMessage];
         const history = buildMessageHistory(updatedMessages);
 
-        const requestBody: ChatRequest & { current_lead: Lead; current_lead_capture: any } = {
+        // Find the last shown properties in the message history
+        let lastProperties: Property[] = [];
+        for (let i = state.messages.length - 1; i >= 0; i--) {
+          const msg = state.messages[i];
+          if (msg.role === 'assistant' && msg.properties && msg.properties.length > 0) {
+            lastProperties = msg.properties;
+            break;
+          }
+        }
+
+        const requestBody: ChatRequest = {
           session_id: state.sessionId,
           user_message: userText,
           message_history: history,
-          current_lead: state.lead, // Pass current lead for mock context
+          current_lead: state.lead,
           current_lead_capture: state.leadCapture,
+          last_properties: lastProperties,
         };
 
         const res = await fetch('/api/chat', {
