@@ -86,9 +86,6 @@ export default function ChatInput({ onSend, disabled = false }: ChatInputProps) 
         </button>
       </div>
 
-      <p className="text-xs text-slate-400 mt-1.5 text-center">
-        This is a demo — Sofia is powered by Claude AI
-      </p>
     </div>
   );
 }

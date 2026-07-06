@@ -39,13 +39,6 @@ export default function CenterPanel({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Powered by badge */}
-          <span className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 border border-slate-200 rounded-full px-2.5 py-1">
-            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            Claude AI
-          </span>
           <RestartButton onRestart={onRestart} disabled={isTyping} />
         </div>
       </div>
