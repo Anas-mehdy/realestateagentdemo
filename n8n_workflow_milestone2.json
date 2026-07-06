@@ -1,0 +1,421 @@
+{
+  "name": "Real Estate AI Sales Assistant - Milestone 2",
+  "nodes": [
+    {
+      "id": "re-n-001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "re-ai-demo-milestone-2",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "real-estate-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "re-n-002",
+      "name": "Extract Variables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || $input.first().json || {};\n\nreturn {\n  sessionId: body.session_id || ('sess_' + Date.now()),\n  userMessage: body.user_message || '',\n  messageHistory: Array.isArray(body.message_history) ? body.message_history : [],\n  currentLead: body.current_lead || {},\n  timestamp: new Date().toISOString()\n};"
+      }
+    },
+    {
+      "id": "re-n-003",
+      "name": "Build Extraction Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $input.first().json;\nconst history = d.messageHistory || [];\nconst userMsg = d.userMessage || '';\n\n// Build readable conversation without duplicating the current user message\nconst histLines = history\n  .filter(function(m) { return !(m.role === 'user' && m.content === userMsg); })\n  .map(function(m) { return (m.role === 'user' ? 'Customer: ' : 'Sofia: ') + m.content; })\n  .join('\\n');\n\nconst prevCtx = (d.currentLead && Object.keys(d.currentLead).length > 0)\n  ? ' Previously captured info: ' + JSON.stringify(d.currentLead)\n  : '';\n\nconst prompt = 'You are a data extractor for a real estate chatbot. Analyze the conversation and extract structured information.\\n\\n'\n  + 'Conversation history:\\n' + (histLines || '(start of conversation)')\n  + '\\n\\nLatest customer message: ' + userMsg + prevCtx\n  + '\\n\\nReturn ONLY a valid JSON object. No markdown. No backticks. No explanation.\\n\\n'\n  + 'Fields:\\n'\n  + '- intent: buy, rent, sell, invest, or null\\n'\n  + '- city: city name string or null\\n'\n  + '- area: neighbourhood or district string or null\\n'\n  + '- budget_max: number only (examples: 140k=140000, 1600/month=1600) or null\\n'\n  + '- bedrooms_min: number only or null\\n'\n  + '- timeline: string describing urgency or null\\n'\n  + '- deal_type: sale (for buy or invest intent), rent (for rent intent), or null\\n'\n  + '- needs_property_search: true ONLY if intent is buy/rent/invest AND city is known AND (budget_max OR bedrooms_min) is known. False for sellers, vague messages, or missing city.\\n'\n  + '- search_reason: one-sentence explanation\\n\\n'\n  + 'Return only the JSON object now.';\n\nconst reqBody = {\n  model: 'claude-haiku-4-5',\n  max_tokens: 300,\n  messages: [{ role: 'user', content: prompt }]\n};\n\nreturn {\n  claudeRequestBody: JSON.stringify(reqBody),\n  sessionId: d.sessionId,\n  userMessage: d.userMessage,\n  messageHistory: d.messageHistory,\n  currentLead: d.currentLead,\n  timestamp: d.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n-004",
+      "name": "Claude Extract Criteria",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeRequestBody }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "id": "re-n-005",
+      "name": "Parse Extraction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const claudeRes = $input.first().json;\nconst ctx = $('Build Extraction Prompt').first().json;\n\n// Extract text from Claude response\nconst text = (claudeRes.content || [])\n  .filter(function(c) { return c.type === 'text'; })\n  .map(function(c) { return c.text; })\n  .join('');\n\n// Safely parse Claude's JSON output\nlet raw = {};\ntry {\n  const cleaned = text\n    .replace(/```json\\s*/gi, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n  raw = JSON.parse(cleaned);\n} catch(e) {\n  raw = { needs_property_search: false, search_reason: 'json_parse_error_fallback' };\n}\n\n// Merge with currentLead to preserve previous session values\nconst cl = ctx.currentLead || {};\n\nconst criteria = {\n  intent:                (raw.intent != null ? raw.intent : null) || cl.intent || null,\n  city:                  (raw.city   != null ? raw.city   : null) || cl.city   || null,\n  area:                  raw.area   || null,\n  budget_max:            (raw.budget_max   != null ? raw.budget_max   : null) || cl.budget   || null,\n  bedrooms_min:          raw.bedrooms_min != null ? raw.bedrooms_min : (cl.bedrooms != null ? cl.bedrooms : null),\n  timeline:              (raw.timeline    != null ? raw.timeline    : null) || cl.timeline || null,\n  deal_type:             raw.deal_type    || null,\n  needs_property_search: raw.needs_property_search === true,\n  search_reason:         raw.search_reason || ''\n};\n\nreturn {\n  criteria:       criteria,\n  sessionId:      ctx.sessionId,\n  userMessage:    ctx.userMessage,\n  messageHistory: ctx.messageHistory,\n  currentLead:    ctx.currentLead,\n  timestamp:      ctx.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n-006",
+      "name": "IF Should Search",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-search-check",
+              "leftValue": "={{ $json.criteria.needs_property_search }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "re-n-007",
+      "name": "Google Sheets Get Properties",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1560, 160],
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "properties",
+          "mode": "name"
+        },
+        "filtersUI": {},
+        "returnAll": true,
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "REPLACE_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "id": "re-n-008",
+      "name": "Filter Properties",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 160],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Get all property rows from Google Sheets\nconst rows = $input.all().map(function(i) { return i.json; });\n\n// Get criteria from Parse Extraction node\nconst pd = $('Parse Extraction').first().json;\nconst c = pd.criteria;\n\n// Helper: safely convert Sheets string values to numbers\nfunction toNum(v) {\n  if (v == null || v === '') return null;\n  const x = parseFloat(String(v).replace(/[^0-9.-]/g, ''));\n  return isNaN(x) ? null : x;\n}\n\n// Apply filters\nconst filtered = rows.filter(function(r) {\n  // availability must be 'available'\n  if (String(r.availability || '').toLowerCase().trim() !== 'available') return false;\n\n  // deal_type must match\n  if (c.deal_type) {\n    if (String(r.deal_type || '').toLowerCase().trim() !== c.deal_type.toLowerCase()) return false;\n  }\n\n  // city: partial case-insensitive match\n  if (c.city) {\n    const rc = String(r.city || '').toLowerCase();\n    const cc = c.city.toLowerCase();\n    if (!rc.includes(cc) && !cc.includes(rc)) return false;\n  }\n\n  // area: soft filter (only applies if specified)\n  if (c.area) {\n    const ra = String(r.area || '').toLowerCase();\n    if (!ra.includes(c.area.toLowerCase())) return false;\n  }\n\n  // bedrooms: row must have at least bedrooms_min\n  if (c.bedrooms_min != null) {\n    const rb = toNum(r.bedrooms);\n    if (rb == null || rb < Number(c.bedrooms_min)) return false;\n  }\n\n  // budget: rent uses price_per_month, sale/invest uses price\n  if (c.budget_max != null) {\n    const bgt = toNum(c.budget_max);\n    if (bgt != null) {\n      if (c.deal_type === 'rent') {\n        const mp = toNum(r.price_per_month);\n        if (mp != null && mp > bgt) return false;\n      } else {\n        const sp = toNum(r.price);\n        if (sp != null && sp > bgt) return false;\n      }\n    }\n  }\n\n  return true;\n});\n\n// Score each match for ranking\nconst scored = filtered.map(function(r) {\n  let s = 0;\n\n  // Exact city match\n  if (c.city && String(r.city || '').toLowerCase() === c.city.toLowerCase()) s += 10;\n\n  // Area match bonus\n  if (c.area && String(r.area || '').toLowerCase().includes(c.area.toLowerCase())) s += 5;\n\n  // Value for money: closer to budget ceiling = slightly higher score\n  if (c.budget_max) {\n    const bgt = toNum(c.budget_max);\n    const price = c.deal_type === 'rent' ? toNum(r.price_per_month) : toNum(r.price);\n    if (bgt && price != null && price <= bgt) s += Math.round((1 - price / bgt) * 5);\n  }\n\n  // Investment intent: prefer higher yield and investment tags\n  if (c.intent === 'invest') {\n    const yld = toNum(r.investment_yield_pct);\n    if (yld) s += Math.round(yld * 2);\n    const tags = String(r.tags || '').toLowerCase();\n    if (tags.includes('invest') || tags.includes('yield') || tags.includes('buy-to-let')) s += 5;\n  }\n\n  return Object.assign({}, r, { _score: s });\n});\n\n// Sort by score, limit to top 3\nconst top3 = scored\n  .sort(function(a, b) { return b._score - a._score; })\n  .slice(0, 3);\n\n// Cast all fields to correct types (Sheets returns everything as strings)\nconst properties = top3.map(function(r) {\n  return {\n    property_id:          String(r.property_id || ''),\n    title:                String(r.title || ''),\n    deal_type:            String(r.deal_type || ''),\n    city:                 String(r.city || ''),\n    area:                 String(r.area || ''),\n    price:                toNum(r.price),\n    price_per_month:      toNum(r.price_per_month),\n    currency:             String(r.currency || 'EUR'),\n    bedrooms:             toNum(r.bedrooms) != null ? toNum(r.bedrooms) : 0,\n    bathrooms:            toNum(r.bathrooms) != null ? toNum(r.bathrooms) : 0,\n    size_sqm:             toNum(r.size_sqm) != null ? toNum(r.size_sqm) : 0,\n    features:             String(r.features || ''),\n    description:          String(r.description || ''),\n    image_url:            String(r.image_url || ''),\n    availability:         String(r.availability || ''),\n    investment_yield_pct: toNum(r.investment_yield_pct)\n  };\n});\n\nreturn {\n  properties:      properties,\n  propertiesFound: properties.length > 0,\n  propertyCount:   properties.length,\n  criteria:        pd.criteria,\n  sessionId:       pd.sessionId,\n  userMessage:     pd.userMessage,\n  messageHistory:  pd.messageHistory,\n  currentLead:     pd.currentLead,\n  timestamp:       pd.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n-009",
+      "name": "Build Messages With Properties",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 160],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $input.first().json;\nconst props = d.properties || [];\nconst history = d.messageHistory || [];\n\nconst SYSTEM = 'You are Sofia, a professional AI Real Estate Sales Assistant for a European real estate agency.\\n\\nYour role is to help visitors who want to buy, rent, sell, or invest in property. Speak like a skilled, warm, consultative human sales assistant - not a chatbot.\\n\\nRULES:\\n- English only. Warm, professional, concise.\\n- Ask maximum 2 questions per message.\\n- Identify intent first, then build step by step: city, property type, budget, timeline.\\n- NEVER invent property listings, prices, or availability.\\n- ONLY recommend properties that appear in the PROPERTY CONTEXT provided in the user message.\\n- If PROPERTY CONTEXT says no matches found, be honest and suggest adjusting criteria. Do not invent alternatives.\\n- No legal, tax, mortgage or financial advice.\\n- Do not ask for name, email or phone in the first 3 messages.\\n- Keep replies short and conversational.';\n\nfunction fmtProp(p) {\n  const price = p.deal_type === 'rent'\n    ? 'EUR ' + (p.price_per_month || 0) + '/month'\n    : 'EUR ' + (p.price || 0).toLocaleString('en-EU');\n  const yld = p.investment_yield_pct ? ' | Gross Yield: ' + p.investment_yield_pct + '%' : '';\n  return '[' + p.property_id + '] ' + p.title\n    + '\\nLocation: ' + p.area + ', ' + p.city\n    + ' | Price: ' + price + yld\n    + '\\nBedrooms: ' + p.bedrooms + ' | Bathrooms: ' + p.bathrooms + ' | Size: ' + p.size_sqm + 'm2'\n    + '\\nFeatures: ' + p.features\n    + '\\nDescription: ' + p.description\n    + '\\nAvailability: ' + p.availability;\n}\n\nconst propContext = props.length > 0\n  ? '[PROPERTY CONTEXT - START]\\nFound ' + props.length + ' matching propert' + (props.length === 1 ? 'y' : 'ies') + ' in the database:\\n\\n'\n    + props.map(fmtProp).join('\\n\\n---\\n\\n')\n    + '\\n[PROPERTY CONTEXT - END]\\n\\nYou may ONLY mention the properties listed above. Do not invent or modify any details.'\n  : '[PROPERTY CONTEXT - START]\\nNo properties matched the customer criteria.\\n[PROPERTY CONTEXT - END]\\n\\nBe honest that no exact match was found. Suggest adjusting criteria (different area, higher budget, fewer bedrooms) or speaking with a human agent. Do NOT invent properties.';\n\n// Build messages: remove the last user message from history (we re-add it with context)\nconst histWithoutLast = history.length > 0 ? history.slice(0, -1) : [];\nconst userMsgWithContext = d.userMessage + '\\n\\n' + propContext;\n\nconst reqBody = {\n  model: 'claude-sonnet-4-5',\n  max_tokens: 800,\n  system: SYSTEM,\n  messages: histWithoutLast.concat([{ role: 'user', content: userMsgWithContext }])\n};\n\nreturn {\n  claudeRequestBody: JSON.stringify(reqBody),\n  properties:        d.properties,\n  propertiesFound:   d.propertiesFound,\n  propertyCount:     d.propertyCount,\n  criteria:          d.criteria,\n  sessionId:         d.sessionId,\n  userMessage:       d.userMessage,\n  messageHistory:    d.messageHistory,\n  currentLead:       d.currentLead,\n  timestamp:         d.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n-010",
+      "name": "Build Messages No Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 440],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $input.first().json;\nconst history = d.messageHistory || [];\n\nconst SYSTEM = 'You are Sofia, a professional AI Real Estate Sales Assistant for a European real estate agency.\\n\\nYour role is to help visitors who want to buy, rent, sell, or invest in property. Speak like a skilled, warm, consultative human sales assistant - not a chatbot.\\n\\nRULES:\\n- English only. Warm, professional, concise.\\n- Ask maximum 2 questions per message.\\n- Identify intent first (buy, rent, sell, invest) before anything else.\\n- Build step by step: intent, city, property type, budget, timeline.\\n- NEVER invent property listings, prices, or availability.\\n- No property search has run yet. Ask smart qualifying questions to gather missing criteria.\\n- No legal, tax, mortgage or financial advice.\\n- Do not ask for name, email or phone in the first 3 messages.\\n- Keep replies short and conversational.\\n\\nOPENER (use only when starting a new conversation):\\nHi there! I am Sofia, your AI property assistant. Whether you are looking to buy, rent, sell, or invest, I am here to help. What brings you here today?';\n\nconst reqBody = {\n  model: 'claude-sonnet-4-5',\n  max_tokens: 800,\n  system: SYSTEM,\n  messages: history\n};\n\nreturn {\n  claudeRequestBody: JSON.stringify(reqBody),\n  properties:        [],\n  propertiesFound:   false,\n  propertyCount:     0,\n  criteria:          d.criteria,\n  sessionId:         d.sessionId,\n  userMessage:       d.userMessage,\n  messageHistory:    d.messageHistory,\n  currentLead:       d.currentLead,\n  timestamp:         d.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n-011",
+      "name": "Merge Paths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2220, 300],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "re-n-012",
+      "name": "Claude Generate Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2440, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeRequestBody }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "id": "re-n-013",
+      "name": "Assemble Final JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const claudeRes = $input.first().json;\nconst md = $('Merge Paths').first().json;\n\n// Extract Sofia's text reply from Claude's API response\nconst text = (claudeRes.content || [])\n  .filter(function(c) { return c.type === 'text'; })\n  .map(function(c) { return c.text; })\n  .join('');\n\n// Strip any leaked property context markers from the reply\nconst reply = text\n  .replace(/\\[PROPERTY CONTEXT - START\\][\\s\\S]*?\\[PROPERTY CONTEXT - END\\]/g, '')\n  .trim() || 'I apologize, I had a technical issue. Please try again.';\n\n// Lead scoring\nconst cr = md.criteria || {};\nconst cl = md.currentLead || {};\n\nfunction calcScore(c, found) {\n  var s = 0;\n  if (c.intent) s += 10;\n  if (c.city) s += 10;\n  if (c.budget_max) s += 10;\n  if (c.bedrooms_min != null) s += 5;\n  if (c.timeline) s += 10;\n  if (found) s += 5;\n  return Math.min(s, 100);\n}\n\nconst ls = calcScore(cr, md.propertiesFound);\nconst lt = ls >= 70 ? 'hot' : ls >= 40 ? 'warm' : 'cold';\n\nconst lead = {\n  intent:    cr.intent     || cl.intent     || null,\n  city:      cr.city       || cl.city       || null,\n  budget:    cr.budget_max || cl.budget     || null,\n  bedrooms:  cr.bedrooms_min != null ? cr.bedrooms_min : (cl.bedrooms != null ? cl.bedrooms : null),\n  timeline:  cr.timeline   || cl.timeline   || null,\n  lead_score: ls,\n  lead_tier:  lt\n};\n\n// Build system events\nconst ts = new Date().toISOString();\nconst evts = [];\n\nif (cr.intent) {\n  evts.push({ type: 'intent_detected', label: 'Intent detected: ' + cr.intent.toUpperCase(), timestamp: ts });\n}\n\nconst parts = [];\nif (cr.city) parts.push('City: ' + cr.city);\nif (cr.budget_max) parts.push('Budget: EUR ' + Number(cr.budget_max).toLocaleString());\nif (cr.bedrooms_min != null) parts.push('Beds: ' + cr.bedrooms_min + '+');\nif (parts.length > 0) {\n  evts.push({ type: 'lead_updated', label: parts.join(' - '), timestamp: ts });\n}\n\nif (cr.needs_property_search) {\n  evts.push({\n    type: 'property_search_completed',\n    label: md.propertiesFound\n      ? 'Property search: ' + md.propertyCount + ' match' + (md.propertyCount !== 1 ? 'es' : '') + ' found'\n      : 'Property search: no matches found',\n    timestamp: ts\n  });\n}\n\nevts.push({ type: 'claude_response', label: 'Sofia response generated via Claude Sonnet', timestamp: ts });\n\nreturn {\n  session_id:    md.sessionId || 'unknown',\n  timestamp:     md.timestamp || ts,\n  reply:         reply,\n  lead:          lead,\n  properties:    Array.isArray(md.properties) ? md.properties : [],\n  system_events: evts\n};"
+      }
+    },
+    {
+      "id": "re-n-014",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2880, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Variables": {
+      "main": [
+        [
+          {
+            "node": "Build Extraction Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Extraction Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude Extract Criteria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Extract Criteria": {
+      "main": [
+        [
+          {
+            "node": "Parse Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Extraction": {
+      "main": [
+        [
+          {
+            "node": "IF Should Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Should Search": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets Get Properties",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Messages No Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets Get Properties": {
+      "main": [
+        [
+          {
+            "node": "Filter Properties",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Properties": {
+      "main": [
+        [
+          {
+            "node": "Build Messages With Properties",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Messages With Properties": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Messages No Search": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Paths": {
+      "main": [
+        [
+          {
+            "node": "Claude Generate Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Generate Reply": {
+      "main": [
+        [
+          {
+            "node": "Assemble Final JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Final JSON": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "re-demo-m2-v1",
+  "meta": {
+    "templateCreatedBy": "Real Estate AI Demo - Milestone 2",
+    "instanceId": "re-ai-demo"
+  }
+}

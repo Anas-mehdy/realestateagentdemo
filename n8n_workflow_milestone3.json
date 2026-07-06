@@ -1,0 +1,563 @@
+{
+  "name": "Real Estate AI Sales Assistant - Milestone 3",
+  "nodes": [
+    {
+      "id": "re-n3-001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 300],
+      "webhookId": "re-ai-demo-milestone-3",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "real-estate-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "re-n3-002",
+      "name": "Extract Variables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || $input.first().json || {};\n\nreturn {\n  sessionId: body.session_id || ('sess_' + Date.now()),\n  userMessage: body.user_message || '',\n  messageHistory: Array.isArray(body.message_history) ? body.message_history : [],\n  currentLead: body.current_lead || {},\n  currentLeadCapture: body.current_lead_capture || {},\n  timestamp: new Date().toISOString()\n};"
+      }
+    },
+    {
+      "id": "re-n3-003",
+      "name": "Build Extraction Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $input.first().json;\nconst history = d.messageHistory || [];\nconst userMsg = d.userMessage || '';\n\n// Build readable conversation history without duplicate user message\nconst histLines = history\n  .filter(function(m) { return !(m.role === 'user' && m.content === userMsg); })\n  .map(function(m) { return (m.role === 'user' ? 'Customer: ' : 'Sofia: ') + m.content; })\n  .join('\\n');\n\nconst prevCtx = ' Previously captured qualifications: ' + JSON.stringify(d.currentLead || {})\n  + ' Previously captured contact details: ' + JSON.stringify(d.currentLeadCapture || {});\n\nconst prompt = 'You are a data extraction assistant for a real estate agency.\\n\\n'\n  + 'Conversation history:\\n' + (histLines || '(start of conversation)')\n  + '\\n\\nLatest customer message: ' + userMsg + '\\n\\n'\n  + prevCtx + '\\n\\n'\n  + 'Extract and return ONLY a valid JSON object with these exact fields. Use empty string \"\" for unknown text fields and 0 for unknown numbers. Do not include markdown codeblocks or backticks. Return ONLY the JSON object:\\n\\n'\n  + '{\\n'\n  + '  \"intent\": \"buy\" | \"rent\" | \"sell\" | \"invest\" | null,\\n'\n  + '  \"city\": string | null,\\n'\n  + '  \"area\": string | null,\\n'\n  + '  \"budget_max\": number | null,\\n'\n  + '  \"bedrooms_min\": number | null,\\n'\n  + '  \"timeline\": string | null,\\n'\n  + '  \"deal_type\": \"sale\" | \"rent\" | null,\\n'\n  + '  \"needs_property_search\": boolean,\\n'\n  + '  \"latest_message_action\": \"new_search\" | \"refine_search\" | \"property_followup\" | \"booking_request\" | \"contact_details_provided\" | \"preferred_time_provided\" | \"seller_request\" | \"general_question\" | \"out_of_scope\" | \"unclear\",\\n'\n  + '  \"customer_name\": string,\\n'\n  + '  \"phone\": string,\\n'\n  + '  \"email\": string,\\n'\n  + '  \"requested_action\": \"more_details\" | \"schedule_viewing\" | \"speak_to_agent\" | \"valuation_request\" | \"general_question\" | \"\",\\n'\n  + '  \"selected_property_reference\": string,\\n'\n  + '  \"preferred_date_time\": string,\\n'\n  + '  \"search_reason\": string\\n'\n  + '}\\n\\n'\n  + 'EXTRACTION RULES:\\n'\n  + '1. deal_type is \"sale\" for buy/invest, \"rent\" for rent.\\n'\n  + '2. needs_property_search = true ONLY if intent + city + (budget_max or bedrooms_min) are known and latest_message_action is new_search or refine_search.\\n'\n  + '3. If visitor asks to view/visit/schedule/book a viewing: latest_message_action=\"booking_request\", requested_action=\"schedule_viewing\".\\n'\n  + '4. If visitor provides name, phone or email: latest_message_action=\"contact_details_provided\".\\n'\n  + '5. If visitor provides preferred date/time: latest_message_action=\"preferred_time_provided\".\\n'\n  + '6. If visitor asks for details about a shown property: latest_message_action=\"property_followup\", requested_action=\"more_details\".\\n'\n  + '7. If visitor wants to speak with human/agent: requested_action=\"speak_to_agent\".\\n'\n  + '8. If visitor wants to sell/value property: requested_action=\"valuation_request\".\\n'\n  + '9. Do not classify as \"invest\" unless user explicitly mentions investment, yield, buy-to-let, tenant, or ROI.';\n\nconst reqBody = {\n  model: 'claude-haiku-4-5',\n  max_tokens: 350,\n  messages: [{ role: 'user', content: prompt }]\n};\n\nreturn {\n  claudeRequestBody: JSON.stringify(reqBody),\n  sessionId: d.sessionId,\n  userMessage: d.userMessage,\n  messageHistory: d.messageHistory,\n  currentLead: d.currentLead,\n  currentLeadCapture: d.currentLeadCapture,\n  timestamp: d.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n3-004",
+      "name": "Claude Extract Criteria",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [700, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeRequestBody }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "id": "re-n3-005",
+      "name": "Parse Extraction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const claudeRes = $input.first().json;\nconst ctx = $('Build Extraction Prompt').first().json;\n\nconst text = (claudeRes.content || [])\n  .filter(function(c) { return c.type === 'text'; })\n  .map(function(c) { return c.text; })\n  .join('');\n\nlet raw = {};\ntry {\n  const cleaned = text\n    .replace(/```json\\s*/gi, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n  raw = JSON.parse(cleaned);\n} catch(e) {\n  raw = { needs_property_search: false, search_reason: 'json_parse_error_fallback' };\n}\n\nconst cl = ctx.currentLead || {};\nconst clc = ctx.currentLeadCapture || {};\n\nconst criteria = {\n  intent:                (raw.intent != null && raw.intent !== '') ? raw.intent : (cl.intent || null),\n  city:                  (raw.city != null && raw.city !== '') ? raw.city : (cl.city || null),\n  area:                  (raw.area != null && raw.area !== '') ? raw.area : null,\n  budget_max:            (raw.budget_max != null && raw.budget_max > 0) ? raw.budget_max : (cl.budget || null),\n  bedrooms_min:          (raw.bedrooms_min != null && raw.bedrooms_min > 0) ? raw.bedrooms_min : (cl.bedrooms != null ? cl.bedrooms : null),\n  timeline:              (raw.timeline != null && raw.timeline !== '') ? raw.timeline : (cl.timeline || null),\n  deal_type:             (raw.deal_type != null && raw.deal_type !== '') ? raw.deal_type : null,\n  needs_property_search: raw.needs_property_search === true,\n  search_reason:         raw.search_reason || ''\n};\n\nconst name = (raw.customer_name != null && raw.customer_name !== '') ? raw.customer_name : (clc.name || null);\nconst phone = (raw.phone != null && raw.phone !== '') ? raw.phone : (clc.phone || null);\nconst email = (raw.email != null && raw.email !== '') ? raw.email : (clc.email || null);\nconst requested_action = (raw.requested_action != null && raw.requested_action !== '') ? raw.requested_action : (clc.requested_action || null);\nconst selected_property_reference = (raw.selected_property_reference != null && raw.selected_property_reference !== '') ? raw.selected_property_reference : (clc.selected_property_id || null);\nconst preferred_date_time = (raw.preferred_date_time != null && raw.preferred_date_time !== '') ? raw.preferred_date_time : (clc.preferred_date_time || null);\n\nlet capture_status = clc.capture_status || 'not_started';\nif (requested_action === 'schedule_viewing') {\n  if (!name || (!phone && !email)) {\n    capture_status = 'waiting_for_contact';\n  } else if (!preferred_date_time) {\n    capture_status = 'waiting_for_time';\n  } else {\n    capture_status = 'contact_captured';\n  }\n} else if (requested_action === 'speak_to_agent' || requested_action === 'valuation_request') {\n  if (!name || (!phone && !email)) {\n    capture_status = 'waiting_for_contact';\n  } else {\n    capture_status = 'contact_captured';\n  }\n} else {\n  if (name && (phone || email)) {\n    capture_status = 'contact_captured';\n  }\n}\n\nconst hasContact = phone || email;\nconst isSeriousAction = requested_action === 'schedule_viewing' || requested_action === 'speak_to_agent' || requested_action === 'valuation_request';\nconst previouslySaved = clc.save_status === 'saved';\nconst should_save_lead = hasContact && isSeriousAction && !previouslySaved;\n\nreturn {\n  criteria:       criteria,\n  leadCapture: {\n    name: name,\n    phone: phone,\n    email: email,\n    requested_action: requested_action,\n    selected_property_id: selected_property_reference,\n    preferred_date_time: preferred_date_time,\n    capture_status: capture_status,\n    should_save_lead: should_save_lead,\n    save_status: clc.save_status || 'not_saved'\n  },\n  sessionId:      ctx.sessionId,\n  userMessage:    ctx.userMessage,\n  messageHistory: ctx.messageHistory,\n  currentLead:    ctx.currentLead,\n  currentLeadCapture: ctx.currentLeadCapture,\n  timestamp:      ctx.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n3-006",
+      "name": "IF Should Search",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-search-check",
+              "leftValue": "={{ $json.criteria.needs_property_search }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "re-n3-007",
+      "name": "Google Sheets Get Properties",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1300, 160],
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "properties",
+          "mode": "name"
+        },
+        "filtersUI": {},
+        "returnAll": true,
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "REPLACE_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "id": "re-n3-008",
+      "name": "Filter Properties",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 160],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const rows = $input.all().map(function(i) { return i.json; });\nconst pd = $('Parse Extraction').first().json;\nconst c = pd.criteria;\n\nfunction toNum(v) {\n  if (v == null || v === '') return null;\n  const x = parseFloat(String(v).replace(/[^0-9.-]/g, ''));\n  return isNaN(x) ? null : x;\n}\n\nconst filtered = rows.filter(function(r) {\n  if (String(r.availability || '').toLowerCase().trim() !== 'available') return false;\n  if (c.deal_type) {\n    if (String(r.deal_type || '').toLowerCase().trim() !== c.deal_type.toLowerCase()) return false;\n  }\n  if (c.city) {\n    const rc = String(r.city || '').toLowerCase();\n    const cc = c.city.toLowerCase();\n    if (!rc.includes(cc) && !cc.includes(rc)) return false;\n  }\n  if (c.area) {\n    const ra = String(r.area || '').toLowerCase();\n    if (!ra.includes(c.area.toLowerCase())) return false;\n  }\n  if (c.bedrooms_min != null) {\n    const rb = toNum(r.bedrooms);\n    if (rb == null || rb < Number(c.bedrooms_min)) return false;\n  }\n  if (c.budget_max != null) {\n    const bgt = toNum(c.budget_max);\n    if (bgt != null) {\n      if (c.deal_type === 'rent') {\n        const mp = toNum(r.price_per_month);\n        if (mp != null && mp > bgt) return false;\n      } else {\n        const sp = toNum(r.price);\n        if (sp != null && sp > bgt) return false;\n      }\n    }\n  }\n  return true;\n});\n\nconst scored = filtered.map(function(r) {\n  let s = 0;\n  if (c.city && String(r.city || '').toLowerCase() === c.city.toLowerCase()) s += 10;\n  if (c.area && String(r.area || '').toLowerCase().includes(c.area.toLowerCase())) s += 5;\n  if (c.budget_max) {\n    const bgt = toNum(c.budget_max);\n    const price = c.deal_type === 'rent' ? toNum(r.price_per_month) : toNum(r.price);\n    if (bgt && price != null && price <= bgt) s += Math.round((1 - price / bgt) * 5);\n  }\n  if (c.intent === 'invest') {\n    const yld = toNum(r.investment_yield_pct);\n    if (yld) s += Math.round(yld * 2);\n  }\n  return Object.assign({}, r, { _score: s });\n});\n\nconst top3 = scored.sort(function(a, b) { return b._score - a._score; }).slice(0, 3);\n\nconst properties = top3.map(function(r) {\n  return {\n    property_id:          String(r.property_id || ''),\n    title:                String(r.title || ''),\n    deal_type:            String(r.deal_type || ''),\n    city:                 String(r.city || ''),\n    area:                 String(r.area || ''),\n    price:                toNum(r.price),\n    price_per_month:      toNum(r.price_per_month),\n    currency:             String(r.currency || 'EUR'),\n    bedrooms:             toNum(r.bedrooms) != null ? toNum(r.bedrooms) : 0,\n    bathrooms:            toNum(r.bathrooms) != null ? toNum(r.bathrooms) : 0,\n    size_sqm:             toNum(r.size_sqm) != null ? toNum(r.size_sqm) : 0,\n    features:             String(r.features || ''),\n    description:          String(r.description || ''),\n    image_url:            String(r.image_url || ''),\n    availability:         String(r.availability || ''),\n    investment_yield_pct: toNum(r.investment_yield_pct)\n  };\n});\n\nreturn {\n  properties:      properties,\n  propertiesFound: properties.length > 0,\n  propertyCount:   properties.length,\n  criteria:        pd.criteria,\n  leadCapture:     pd.leadCapture,\n  sessionId:       pd.sessionId,\n  userMessage:     pd.userMessage,\n  messageHistory:  pd.messageHistory,\n  currentLead:     pd.currentLead,\n  currentLeadCapture: pd.currentLeadCapture,\n  timestamp:       pd.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n3-009",
+      "name": "Build Messages With Properties",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 160],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $input.first().json;\nconst props = d.properties || [];\nconst history = d.messageHistory || [];\n\nconst SYSTEM = 'You are Sofia, a professional AI Real Estate Sales Assistant for a European real estate agency.\\n\\nYour role is to help visitors who want to buy, rent, sell, or invest in property. Speak like a skilled, warm, consultative human sales assistant.\\n\\nRULES:\\n- English only. Warm, professional, concise.\\n- Ask maximum 2 questions per message.\\n- Identify intent first, then build step by step: city, property type, budget, timeline.\\n- If the visitor wants to book a viewing or speak to an agent, ask for their name and contact details (phone/email) if not already provided.\\n- Thank them once provided, and ask for preferred date/time. Do not claim the viewing is fully confirmed - say the team will reach out to confirm.\\n- NEVER invent property listings, prices, or availability.\\n- ONLY recommend properties that appear in the PROPERTY CONTEXT provided in the user message.\\n- If PROPERTY CONTEXT says no matches found, suggest adjusting criteria. Do not invent alternatives.\\n- No legal, tax, mortgage or financial advice.\\n- Keep replies short and conversational.';\n\nfunction fmtProp(p) {\n  const price = p.deal_type === 'rent'\n    ? 'EUR ' + (p.price_per_month || 0) + '/month'\n    : 'EUR ' + (p.price || 0).toLocaleString('en-EU');\n  return '[' + p.property_id + '] ' + p.title\n    + '\\nLocation: ' + p.area + ', ' + p.city\n    + ' | Price: ' + price\n    + '\\nBedrooms: ' + p.bedrooms + ' | Size: ' + p.size_sqm + 'm2'\n    + '\\nFeatures: ' + p.features\n    + '\\nDescription: ' + p.description;\n}\n\nconst propContext = props.length > 0\n  ? '[PROPERTY CONTEXT - START]\\nFound matching properties in the database:\\n\\n'\n    + props.map(fmtProp).join('\\n\\n---\\n\\n')\n    + '\\n[PROPERTY CONTEXT - END]\\n\\nYou may ONLY mention the properties listed above. Do not invent details.'\n  : '[PROPERTY CONTEXT - START]\\nNo properties matched the customer criteria.\\n[PROPERTY CONTEXT - END]\\n\\nBe honest that no match was found. Suggest adjusting budget or location. Do NOT invent properties.';\n\nconst histWithoutLast = history.length > 0 ? history.slice(0, -1) : [];\nconst userMsgWithContext = d.userMessage + '\\n\\n' + propContext;\n\nconst reqBody = {\n  model: 'claude-sonnet-4-5',\n  max_tokens: 800,\n  system: SYSTEM,\n  messages: histWithoutLast.concat([{ role: 'user', content: userMsgWithContext }])\n};\n\nreturn {\n  claudeRequestBody: JSON.stringify(reqBody),\n  properties:        d.properties,\n  propertiesFound:   d.propertiesFound,\n  propertyCount:     d.propertyCount,\n  criteria:          d.criteria,\n  leadCapture:       d.leadCapture,\n  sessionId:         d.sessionId,\n  userMessage:       d.userMessage,\n  messageHistory:    d.messageHistory,\n  currentLead:       d.currentLead,\n  currentLeadCapture: d.currentLeadCapture,\n  timestamp:         d.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n3-010",
+      "name": "Build Messages No Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 440],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $input.first().json;\nconst history = d.messageHistory || [];\n\nconst SYSTEM = 'You are Sofia, a professional AI Real Estate Sales Assistant for a European real estate agency.\\n\\nYour role is to help visitors who want to buy, rent, sell, or invest in property. Speak like a skilled, warm, consultative human sales assistant.\\n\\nRULES:\\n- English only. Warm, professional, concise.\\n- Ask maximum 2 questions per message.\\n- Identify intent first, then build step by step: city, property type, budget, timeline.\\n- If the visitor wants to book a viewing or speak to an agent, ask for their name and contact details (phone/email) if not already provided.\\n- Thank them once provided, and ask for preferred date/time. Do not claim the viewing is fully confirmed - say the team will reach out to confirm.\\n- NEVER invent property listings, prices, or availability.\\n- No property search has run. Ask qualifying questions to gather missing criteria.\\n- No legal, tax, mortgage or financial advice.\\n- Keep replies short and conversational.';\n\nconst reqBody = {\n  model: 'claude-sonnet-4-5',\n  max_tokens: 800,\n  system: SYSTEM,\n  messages: history\n};\n\nreturn {\n  claudeRequestBody: JSON.stringify(reqBody),\n  properties:        [],\n  propertiesFound:   false,\n  propertyCount:     0,\n  criteria:          d.criteria,\n  leadCapture:       d.leadCapture,\n  sessionId:         d.sessionId,\n  userMessage:       d.userMessage,\n  messageHistory:    d.messageHistory,\n  currentLead:       d.currentLead,\n  currentLeadCapture: d.currentLeadCapture,\n  timestamp:         d.timestamp\n};"
+      }
+    },
+    {
+      "id": "re-n3-011",
+      "name": "Merge Paths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1950, 300],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "re-n3-012",
+      "name": "Claude Generate Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2150, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeRequestBody }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "id": "re-n3-013",
+      "name": "IF Should Save Lead",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2350, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "save-lead-check",
+              "leftValue": "={{ $('Merge Paths').first().json.leadCapture.should_save_lead }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "re-n3-014",
+      "name": "Google Sheets Append Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [2550, 160],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_SPREADSHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "columnsUI": {
+          "columnsValues": [
+            { "columnName": "lead_id", "value": "=lead_{{ Math.random().toString(36).substring(2, 7) }}" },
+            { "columnName": "created_at", "value": "={{ $('Merge Paths').first().json.timestamp }}" },
+            { "columnName": "session_id", "value": "={{ $('Merge Paths').first().json.sessionId }}" },
+            { "columnName": "name", "value": "={{ $('Merge Paths').first().json.leadCapture.name || '' }}" },
+            { "columnName": "phone", "value": "={{ $('Merge Paths').first().json.leadCapture.phone || '' }}" },
+            { "columnName": "email", "value": "={{ $('Merge Paths').first().json.leadCapture.email || '' }}" },
+            { "columnName": "intent", "value": "={{ $('Merge Paths').first().json.criteria.intent || '' }}" },
+            { "columnName": "lead_tier", "value": "hot" },
+            { "columnName": "lead_score", "value": "75" },
+            { "columnName": "requested_action", "value": "={{ $('Merge Paths').first().json.leadCapture.requested_action || '' }}" },
+            { "columnName": "capture_status", "value": "saved" },
+            { "columnName": "selected_property_id", "value": "={{ $('Merge Paths').first().json.leadCapture.selected_property_id || '' }}" },
+            { "columnName": "selected_property_title", "value": "={{ $('Merge Paths').first().json.leadCapture.selected_property_title || '' }}" },
+            { "columnName": "city", "value": "={{ $('Merge Paths').first().json.criteria.city || '' }}" },
+            { "columnName": "area", "value": "={{ $('Merge Paths').first().json.criteria.area || '' }}" },
+            { "columnName": "budget", "value": "={{ $('Merge Paths').first().json.criteria.budget_max || '' }}" },
+            { "columnName": "bedrooms", "value": "={{ $('Merge Paths').first().json.criteria.bedrooms_min || '' }}" },
+            { "columnName": "timeline", "value": "={{ $('Merge Paths').first().json.criteria.timeline || '' }}" },
+            { "columnName": "preferred_date_time", "value": "={{ $('Merge Paths').first().json.leadCapture.preferred_date_time || '' }}" },
+            { "columnName": "conversation_summary", "value": "=Lead interested in {{ $('Merge Paths').first().json.criteria.intent || 'property' }} in {{ $('Merge Paths').first().json.criteria.city || 'Bucharest' }}" },
+            { "columnName": "source", "value": "real_estate_demo" },
+            { "columnName": "status", "value": "new" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "REPLACE_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "id": "re-n3-015",
+      "name": "Telegram Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2750, 160],
+      "parameters": {
+        "chatId": "REPLACE_TELEGRAM_CHAT_ID",
+        "text": "=🔥 New Real Estate Lead\n\nName: {{ $('Merge Paths').first().json.leadCapture.name || 'Not provided' }}\nPhone: {{ $('Merge Paths').first().json.leadCapture.phone || 'Not provided' }}\nEmail: {{ $('Merge Paths').first().json.leadCapture.email || 'Not provided' }}\n\nIntent: {{ $('Merge Paths').first().json.criteria.intent ? $('Merge Paths').first().json.criteria.intent.toUpperCase() : 'Not provided' }}\nAction: {{ $('Merge Paths').first().json.leadCapture.requested_action ? $('Merge Paths').first().json.leadCapture.requested_action.replace('_', ' ') : 'None' }}\nProperty Reference: {{ $('Merge Paths').first().json.leadCapture.selected_property_id || 'None' }}\nCity: {{ $('Merge Paths').first().json.criteria.city || 'Not provided' }}\nBudget: {{ $('Merge Paths').first().json.criteria.budget_max ? 'EUR ' + Number($('Merge Paths').first().json.criteria.budget_max).toLocaleString() : 'Not provided' }}\nLead Tier: Hot 🔥\n\nPreferred Time: {{ $('Merge Paths').first().json.leadCapture.preferred_date_time || 'Waiting for customer' }}\n\nSummary:\nThe customer is interested and contact details have been verified.\n\nSession:\n{{ $('Merge Paths').first().json.sessionId }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_BOT_CREDENTIAL",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "re-n3-016",
+      "name": "Assemble Final JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3000, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const claudeRes = $('Claude Generate Reply').first().json;\nconst md = $('Merge Paths').first().json;\n\n// Determine if Google Sheets/Telegram save executed successfully\nconst savedNodeResult = $('IF Should Save Lead').first().json;\nconst hasBeenSaved = savedNodeResult.conditions?.save_lead_check === true || md.leadCapture.save_status === 'saved';\n\nconst text = (claudeRes.content || [])\n  .filter(function(c) { return c.type === 'text'; })\n  .map(function(c) { return c.text; })\n  .join('');\n\nconst reply = text\n  .replace(/\\[PROPERTY CONTEXT - START\\][\\s\\S]*?\\[PROPERTY CONTEXT - END\\]/g, '')\n  .trim() || 'I apologize, I had a technical issue. Please try again.';\n\nconst cr = md.criteria || {};\nconst cl = md.currentLead || {};\nconst lc = md.leadCapture || {};\n\nfunction calcScore(c, name, phone, email, action, time) {\n  let s = 0;\n  if (c.intent) s += 10;\n  if (c.city) s += 10;\n  if (c.budget_max) s += 10;\n  if (c.bedrooms_min != null) s += 5;\n  if (c.timeline) s += 10;\n  if (name && (phone || email)) s += 30;\n  if (action && action !== 'general_question') s += 15;\n  if (time) s += 10;\n  return Math.min(s, 100);\n}\n\nconst ls = calcScore(cr, lc.name, lc.phone, lc.email, lc.requested_action, lc.preferred_date_time);\nconst lt = ls >= 70 ? 'hot' : ls >= 40 ? 'warm' : 'cold';\n\nconst lead = {\n  intent:    cr.intent     || cl.intent     || null,\n  city:      cr.city       || cl.city       || null,\n  budget:    cr.budget_max || cl.budget     || null,\n  bedrooms:  cr.bedrooms_min != null ? cr.bedrooms_min : (cl.bedrooms != null ? cl.bedrooms : null),\n  timeline:  cr.timeline   || cl.timeline   || null,\n  lead_score: ls,\n  lead_tier:  lt\n};\n\n// Update status flags based on saves\nlet finalCaptureStatus = lc.capture_status;\nlet finalSaveStatus = lc.save_status;\n\nif (hasBeenSaved) {\n  finalSaveStatus = 'saved';\n  finalCaptureStatus = 'notified'; // Trigger Notified on frontend visual display\n}\n\nconst lead_capture = {\n  name:                     lc.name,\n  phone:                    lc.phone,\n  email:                    lc.email,\n  requested_action:         lc.requested_action,\n  selected_property_id:     lc.selected_property_id,\n  selected_property_title:  lc.selected_property_title || (md.properties && md.properties.length > 0 ? md.properties[0].title : null),\n  preferred_date_time:      lc.preferred_date_time,\n  capture_status:           finalCaptureStatus,\n  save_status:              finalSaveStatus\n};\n\nconst ts = new Date().toISOString();\nconst evts = [];\n\nif (cr.intent) {\n  evts.push({ type: 'intent_detected', label: 'Intent detected: ' + cr.intent.toUpperCase(), timestamp: ts });\n}\nif (cr.city) {\n  evts.push({ type: 'lead_updated', label: 'City qualified: ' + cr.city, timestamp: ts });\n}\nif (lc.requested_action === 'schedule_viewing') {\n  evts.push({ type: 'viewing_requested', label: 'Viewing request received', timestamp: ts });\n}\nif (lc.name && (lc.phone || lc.email)) {\n  evts.push({ type: 'contact_captured', label: 'Contact captured for ' + lc.name, timestamp: ts });\n}\nif (hasBeenSaved) {\n  evts.push({ type: 'lead_saved', label: 'Lead details logged in Google Sheets', timestamp: ts });\n  evts.push({ type: 'sales_alert_sent', label: 'Hot lead Telegram notification sent to sales', timestamp: ts });\n}\nevts.push({ type: 'claude_response', label: 'Sofia response generated via Claude Sonnet', timestamp: ts });\n\nreturn {\n  session_id:    md.sessionId || 'unknown',\n  timestamp:     md.timestamp || ts,\n  reply:         reply,\n  lead:          lead,\n  lead_capture:  lead_capture,\n  properties:    Array.isArray(md.properties) ? md.properties : [],\n  system_events: evts\n};"
+      }
+    },
+    {
+      "id": "re-n3-017",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3200, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Variables": {
+      "main": [
+        [
+          {
+            "node": "Build Extraction Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Extraction Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude Extract Criteria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Extract Criteria": {
+      "main": [
+        [
+          {
+            "node": "Parse Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Extraction": {
+      "main": [
+        [
+          {
+            "node": "IF Should Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Should Search": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets Get Properties",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Messages No Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets Get Properties": {
+      "main": [
+        [
+          {
+            "node": "Filter Properties",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Properties": {
+      "main": [
+        [
+          {
+            "node": "Build Messages With Properties",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Messages With Properties": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Messages No Search": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Paths": {
+      "main": [
+        [
+          {
+            "node": "Claude Generate Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Generate Reply": {
+      "main": [
+        [
+          {
+            "node": "IF Should Save Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Should Save Lead": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets Append Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Assemble Final JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets Append Lead": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Notification": {
+      "main": [
+        [
+          {
+            "node": "Assemble Final JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Final JSON": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "re-demo-m3-v1",
+  "meta": {
+    "templateCreatedBy": "Real Estate AI Demo - Milestone 3",
+    "instanceId": "re-ai-demo"
+  }
+}
