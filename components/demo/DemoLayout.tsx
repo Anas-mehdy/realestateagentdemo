@@ -10,7 +10,7 @@ interface DemoLayoutProps {
 
 export default function DemoLayout({ left, center, right }: DemoLayoutProps) {
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
       {/* Top bar */}
       <header className="flex-shrink-0 h-14 bg-white border-b border-slate-200 flex items-center px-6 gap-4 shadow-sm z-10">
         <div className="flex items-center gap-2.5">
@@ -51,24 +51,24 @@ export default function DemoLayout({ left, center, right }: DemoLayoutProps) {
       </header>
 
       {/* 3-column grid */}
-      <main className="flex-1 grid gap-4 p-4 overflow-hidden"
+      <main className="flex-1 grid gap-4 p-4 overflow-hidden min-h-0"
         style={{
           gridTemplateColumns: '280px 1fr 280px',
           height: 'calc(100vh - 56px)',
         }}
       >
         {/* Left panel */}
-        <div className="overflow-hidden flex flex-col">
+        <div className="overflow-hidden flex flex-col min-h-0 h-full">
           {left}
         </div>
 
         {/* Center panel — fills remaining height */}
-        <div className="overflow-hidden flex flex-col min-h-0">
+        <div className="overflow-hidden flex flex-col min-h-0 h-full">
           {center}
         </div>
 
         {/* Right panel */}
-        <div className="overflow-hidden flex flex-col">
+        <div className="overflow-hidden flex flex-col min-h-0 h-full">
           {right}
         </div>
       </main>

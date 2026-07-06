@@ -105,7 +105,7 @@ export default function LeftPanel({ onScenarioSelect, isTyping }: LeftPanelProps
           Try These Demo Messages
         </h2>
         
-        <div className="space-y-1.5 overflow-y-auto max-h-[360px] pr-1">
+        <div className="space-y-1.5 pr-1">
           {CATEGORIZED_PROMPTS.map((cat, catIdx) => {
             const isOpen = activeCategory === catIdx;
             return (
