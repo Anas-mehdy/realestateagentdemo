@@ -81,12 +81,8 @@ const CATEGORIZED_PROMPTS: DemoCategory[] = [
 ];
 
 export default function LeftPanel({ onScenarioSelect, isTyping }: LeftPanelProps) {
-  // Buying (0), Renting (1), and Viewing & Leads (3) are open by default
-  const [openCategories, setOpenCategories] = useState<Record<number, boolean>>({
-    0: true,
-    1: true,
-    3: true
-  });
+  // All categories folded by default
+  const [openCategories, setOpenCategories] = useState<Record<number, boolean>>({});
 
   const toggleCategory = (index: number) => {
     setOpenCategories(prev => ({
