@@ -122,12 +122,13 @@ Each properties tab should use the same columns as the original `properties` tab
 
 ## n8n Changes
 
-The updated workflow export is `n8n_workflow_milestone3.json`.
+The GoDubai-specific workflow export is `n8n_workflow_real_estate_agent_template.json`.
+It is intentionally configured to default to GoDubai even when `client_id` is missing during manual n8n tests.
 
 Changed nodes:
 
 - `Extract Variables`: now reads `client_id` from the webhook body.
-- `Resolve Client Config`: new Code node that maps `default`, `company_a`, and `company_b` to sheet names and company context.
+- `Resolve Client Config`: resolves the workflow to GoDubai context, using `godubai_properties` and `godubai_leads`.
 - `Build Extraction Prompt`: passes `clientId` and `clientConfig` forward.
 - `Parse Extraction`: passes `clientId` and `clientConfig` forward.
 - `Google Sheets Get Properties`: uses `clientConfig.propertiesSheet`.
