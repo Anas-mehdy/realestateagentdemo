@@ -78,6 +78,7 @@ export function mergeLead(current: Lead, incoming: Partial<Lead>): Lead {
     intent: incoming.intent ?? current.intent,
     city: incoming.city ?? current.city,
     budget: incoming.budget ?? current.budget,
+    budget_currency: incoming.budget_currency ?? current.budget_currency,
     bedrooms: incoming.bedrooms ?? current.bedrooms,
     timeline: incoming.timeline ?? current.timeline,
     lead_score: incoming.lead_score ?? current.lead_score,

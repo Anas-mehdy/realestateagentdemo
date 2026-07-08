@@ -114,7 +114,7 @@ export default function LeadPreview({ lead, leadCapture }: LeadPreviewProps) {
             <Field label="City" value={lead.city} />
             <Field
               label="Budget"
-              value={lead.budget ? formatCurrency(lead.budget, 'AED') : null}
+              value={lead.budget ? formatCurrency(lead.budget, lead.budget_currency || 'AED') : null}
             />
             <Field
               label="Bedrooms"
@@ -170,7 +170,7 @@ export default function LeadPreview({ lead, leadCapture }: LeadPreviewProps) {
       }`}>
         {leadCapture.capture_status === 'notified' && '🔥 Hot lead — Telegram sales alert sent!'}
         {leadCapture.capture_status === 'saved' && '💾 Lead saved to Google Sheets leads database.'}
-        {leadCapture.capture_status === 'contact_captured' && '✅ Contact details validated.'}
+        {leadCapture.capture_status === 'contact_captured' && '✅ Contact details captured.'}
         {leadCapture.capture_status === 'waiting_for_time' && '⏳ Waiting for preferred viewing slot…'}
         {leadCapture.capture_status === 'waiting_for_contact' && '🔑 Sofia is asking for contact details…'}
         {leadCapture.capture_status === 'not_started' && '💬 Sofia is qualifying the visitor.'}

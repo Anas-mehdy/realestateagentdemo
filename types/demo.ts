@@ -32,6 +32,7 @@ export interface Lead {
   intent: Intent;
   city: string | null;
   budget: number | null;
+  budget_currency?: string | null;
   bedrooms: number | null;
   timeline: string | null;
   lead_score: number;
@@ -42,6 +43,7 @@ export const EMPTY_LEAD: Lead = {
   intent: null,
   city: null,
   budget: null,
+  budget_currency: null,
   bedrooms: null,
   timeline: null,
   lead_score: 0,
