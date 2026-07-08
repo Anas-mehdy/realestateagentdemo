@@ -4,7 +4,7 @@
 // Simulates Sofia's conversational style + lead capture updates.
 // ─────────────────────────────────────────────────────────────
 
-import { ChatResponse, Lead, LeadCapture, Property, SystemEvent, EMPTY_LEAD, EMPTY_LEAD_CAPTURE } from '@/types/demo';
+import { ChatResponse, DemoClientConfig, Lead, LeadCapture, Property, SystemEvent } from '@/types/demo';
 
 // ── Mock Database ────────────────────────────────────────────
 const MOCK_PROPERTIES: Property[] = [
@@ -149,7 +149,8 @@ export function buildMockResponse(
   sessionId: string,
   userMessage: string,
   currentLead: Lead,
-  currentLeadCapture: LeadCapture
+  currentLeadCapture: LeadCapture,
+  clientConfig: DemoClientConfig
 ): ChatResponse {
   const intent = detectIntent(userMessage) ?? currentLead.intent;
   const city = detectCity(userMessage) ?? currentLead.city;
@@ -227,7 +228,7 @@ export function buildMockResponse(
       capture_status = 'saved';
       system_events.push({
         type: 'lead_saved',
-        label: `Lead saved to Google Sheets (leads tab)`,
+        label: `Lead saved to Google Sheets (${clientConfig.n8nClientId}_leads tab)`,
         timestamp: ts,
       });
       
@@ -305,34 +306,36 @@ export function buildMockResponse(
   
   if (textClean.includes('weather') || textClean.includes('sport')) {
     reply = "I'm focused on helping with real estate — is there a property question I can help you with? 🏠";
+  } else if (textClean.includes('are you ai') || textClean.includes('are you an ai')) {
+    reply = `I'm an AI property assistant for ${clientConfig.companyName}, here to help qualify your needs and connect you with the team.`;
   } else if (requested_action === 'schedule_viewing') {
     if (!hasContact) {
-      reply = "Of course — I can help with that. What’s your name and the best phone number or email for the agent to reach you?";
+      reply = `Of course. I can pass a viewing request to ${clientConfig.companyName}. What's your name and the best phone number or email for the team to reach you?`;
     } else if (!preferred_date_time) {
       reply = `Thanks, ${name}. What date and time would work best for the viewing?`;
     } else {
-      reply = `Perfect. I'll pass this to the sales team so they can confirm the viewing time with you.`;
+      reply = `Perfect. I'll pass this to the ${clientConfig.companyName} team so they can confirm availability and the viewing time with you.`;
     }
   } else if (requested_action === 'speak_to_agent') {
     if (!hasContact) {
-      reply = "I would be happy to connect you with one of our experienced agents. Could you please share your name and contact details?";
+      reply = `I can connect you with the ${clientConfig.companyName} team. Could you please share your name and contact details?`;
     } else {
-      reply = `Thanks, ${name}. I've passed your request to our team and they will be in touch shortly.`;
+      reply = `Thanks, ${name}. I've passed your request to ${clientConfig.companyName} and the team will be in touch shortly.`;
     }
   } else if (intent === 'sell') {
     if (!hasContact) {
-      reply = "Selling your property in Floreasca is a great move, it is a highly in-demand area! I can have one of our valuation experts calculate an estimate. What is your name and phone number to set that up?";
+      reply = `${clientConfig.companyName} can help with valuation requests in ${city || clientConfig.serviceAreas[0] || clientConfig.market}. To have the team follow up, what is your name and the best phone number or email?`;
     } else {
-      reply = `Thank you, ${name}. I've logged your valuation request for Floreasca and our specialist will contact you on ${phone || email} soon.`;
+      reply = `Thank you, ${name}. I've logged your valuation request and the ${clientConfig.companyName} team will contact you on ${phone || email} soon.`;
     }
   } else if (properties.length > 0) {
     const p = properties[0];
     const priceStr = p.deal_type === 'rent' ? `€${p.price_per_month}/month` : `€${(p.price ?? 0).toLocaleString()}`;
-    reply = `I found a great match: **${p.title}** located in ${p.area}, ${p.city} for ${priceStr}. It has ${p.bedrooms} bedrooms, ${p.bathrooms} bathroom and is ${p.size_sqm} sqm. ${p.description} Would you like to schedule a viewing?`;
+    reply = `This looks like the strongest fit based on your criteria: **${p.title}** in ${p.area}, ${p.city} for ${priceStr}. It has ${p.bedrooms} bedrooms, ${p.bathrooms} bathroom and ${p.size_sqm} sqm. ${p.description} The next smart step would be to arrange a viewing so the ${clientConfig.companyName} team can confirm availability and details. Would you like me to pass your details to them?`;
   } else if (textClean.includes('brasov') || textClean.includes('5-bedroom house')) {
     reply = "I don't have an exact match for those criteria in our database right now. Would you be open to adjusting your budget or considering a nearby neighborhood?";
   } else {
-    reply = "Hi there! I am Sofia, your AI property assistant. Whether you are looking to buy, rent, sell, or invest, I am here to help. What brings you here today?";
+    reply = clientConfig.welcomeMessage;
   }
 
   // ── Construct system events list ────────────────────────────

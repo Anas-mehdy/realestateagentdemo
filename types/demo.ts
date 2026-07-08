@@ -109,6 +109,7 @@ export interface Message {
 
 // ── API Contract ─────────────────────────────────────────────
 export interface ChatRequest {
+  client_id: string;
   session_id: string;
   user_message: string;
   message_history: { role: MessageRole; content: string }[];
@@ -144,4 +145,27 @@ export interface DemoScenario {
   label: string;
   prompt: string;
   icon: string;
+}
+
+export interface DemoPromptGroup {
+  title: string;
+  icon: string;
+  prompts: string[];
+  note?: string;
+}
+
+export interface DemoClientConfig {
+  clientId: string;
+  companyName: string;
+  assistantName: string;
+  websiteUrl: string;
+  logoUrl?: string;
+  initials: string;
+  market: string;
+  serviceAreas: string[];
+  companyStrengths: string[];
+  propertyTypes: string[];
+  welcomeMessage: string;
+  demoPromptGroups: DemoPromptGroup[];
+  n8nClientId: string;
 }

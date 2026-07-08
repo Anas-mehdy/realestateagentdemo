@@ -1,27 +1,29 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { DemoClientConfig } from '@/types/demo';
 
 interface DemoLayoutProps {
+  client: DemoClientConfig;
   left: ReactNode;
   center: ReactNode;
   right: ReactNode;
 }
 
-export default function DemoLayout({ left, center, right }: DemoLayoutProps) {
+export default function DemoLayout({ client, left, center, right }: DemoLayoutProps) {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
       {/* Top bar */}
       <header className="flex-shrink-0 h-14 bg-white border-b border-slate-200 flex items-center px-6 gap-4 shadow-sm z-10">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-700 to-blue-900 flex items-center justify-center">
-            <span className="text-white text-xs font-bold">RE</span>
+            <span className="text-white text-xs font-bold">{client.initials}</span>
           </div>
           <span className="text-sm font-semibold text-slate-800">
-            Real Estate AI Sales Assistant
+            {client.companyName}
           </span>
           <span className="hidden sm:block text-xs text-slate-400 border border-slate-200 rounded-full px-2 py-0.5">
-            Demo v1.0
+            {client.assistantName} Demo
           </span>
         </div>
 

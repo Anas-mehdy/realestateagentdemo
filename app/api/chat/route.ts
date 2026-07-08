@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ChatResponse, Lead, EMPTY_LEAD, EMPTY_LEAD_CAPTURE } from '@/types/demo';
 import { buildMockResponse } from '@/lib/mockResponse';
+import { getDemoClient } from '@/lib/demoClients';
 
 // ─────────────────────────────────────────────────────────────
 // app/api/chat/route.ts
@@ -11,7 +12,16 @@ import { buildMockResponse } from '@/lib/mockResponse';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { session_id, user_message, message_history, current_lead, current_lead_capture, last_properties } = body;
+    const {
+      client_id,
+      session_id,
+      user_message,
+      message_history,
+      current_lead,
+      current_lead_capture,
+      last_properties,
+    } = body;
+    const clientConfig = getDemoClient(client_id);
 
     if (!user_message || typeof user_message !== 'string') {
       return NextResponse.json(
@@ -35,7 +45,15 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'application/json',
             ...(apiKey ? { 'X-Demo-Key': apiKey } : {}),
           },
-          body: JSON.stringify({ session_id, user_message, message_history, current_lead, current_lead_capture, last_properties }),
+          body: JSON.stringify({
+            client_id: clientConfig.n8nClientId,
+            session_id,
+            user_message,
+            message_history,
+            current_lead,
+            current_lead_capture,
+            last_properties,
+          }),
           signal: controller.signal,
         });
 
@@ -62,7 +80,13 @@ export async function POST(req: NextRequest) {
     // Slight artificial delay to simulate real API latency
     await new Promise((r) => setTimeout(r, 800 + Math.random() * 600));
 
-    const mockData = buildMockResponse(session_id, user_message, leadContext, leadCaptureContext);
+    const mockData = buildMockResponse(
+      session_id,
+      user_message,
+      leadContext,
+      leadCaptureContext,
+      clientConfig
+    );
     return NextResponse.json(mockData);
 
   } catch (error) {

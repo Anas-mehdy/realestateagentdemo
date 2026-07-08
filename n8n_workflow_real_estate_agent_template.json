@@ -1,5 +1,5 @@
 {
-  "name": "Real Estate AI Sales Assistant - Milestone 3",
+  "name": "Real Estate AI Sales Agent - Multi Client Template",
   "nodes": [
     {
       "id": "re-n3-001",
@@ -13,7 +13,7 @@
       "webhookId": "re-ai-demo-milestone-3",
       "parameters": {
         "httpMethod": "POST",
-        "path": "real-estate-chat",
+        "path": "real-estate-agent-chat",
         "responseMode": "responseNode",
         "options": {}
       }
@@ -476,7 +476,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const d = $input.first().json;\n\nconst clients = {\n  default: {\n    clientId: 'default',\n    propertiesSheet: 'properties',\n    leadsSheet: 'leads',\n    companyName: 'PropAssist Demo',\n    assistantName: 'Sofia',\n    websiteUrl: 'https://example.com',\n    market: 'Romania',\n    serviceAreas: ['Bucharest'],\n    companyStrengths: [\n      'local real estate expertise',\n      'fast viewing coordination',\n      'support for buyers, renters, sellers, and investors'\n    ],\n    telegramChatId: ''\n  },\n  company_a: {\n    clientId: 'company_a',\n    propertiesSheet: 'company_a_properties',\n    leadsSheet: 'company_a_leads',\n    companyName: 'Company A Real Estate',\n    assistantName: 'Sofia',\n    websiteUrl: 'https://example.com/company-a',\n    market: 'Romania',\n    serviceAreas: ['Bucharest'],\n    companyStrengths: [\n      'local real estate expertise',\n      'fast viewing coordination',\n      'support for buyers, renters, sellers, and investors'\n    ],\n    telegramChatId: ''\n  },\n  company_b: {\n    clientId: 'company_b',\n    propertiesSheet: 'company_b_properties',\n    leadsSheet: 'company_b_leads',\n    companyName: 'Company B Properties',\n    assistantName: 'Sofia',\n    websiteUrl: 'https://example.com/company-b',\n    market: 'Romania',\n    serviceAreas: ['Bucharest'],\n    companyStrengths: [\n      'local real estate expertise',\n      'fast viewing coordination',\n      'support for buyers, renters, sellers, and investors'\n    ],\n    telegramChatId: ''\n  },\n  godubai: {\n    clientId: 'godubai',\n    propertiesSheet: 'godubai_properties',\n    leadsSheet: 'godubai_leads',\n    companyName: 'GoDubai Portal',\n    assistantName: 'Sofia',\n    websiteUrl: 'https://www.godubai.estate/',\n    market: 'Dubai & UAE',\n    serviceAreas: ['Dubai', 'UAE', 'Business Bay', 'Dubai South', 'Dubai Design District (D3)'],\n    companyStrengths: [\n      'verified Dubai and UAE off-plan project listings',\n      'personalized Dubai investment plan flow',\n      'support for brokers, investors, and property buyers',\n      'human-verified exclusive real estate leads for brokers',\n      'fast support and sales follow-up'\n    ],\n    telegramChatId: ''\n  }\n};\n\nconst clientConfig = clients[d.clientId] || clients.default;\n\nreturn Object.assign({}, d, {\n  clientId: clientConfig.clientId,\n  clientConfig: clientConfig\n});"
+        "jsCode": "const d = $input.first().json;\n\nconst clients = {\n  default: {\n    clientId: 'default',\n    propertiesSheet: 'properties',\n    leadsSheet: 'leads',\n    companyName: 'PropAssist Demo',\n    assistantName: 'Sofia',\n    websiteUrl: 'https://example.com',\n    market: 'Romania',\n    serviceAreas: ['Bucharest'],\n    companyStrengths: [\n      'local real estate expertise',\n      'fast viewing coordination',\n      'support for buyers, renters, sellers, and investors'\n    ],\n    telegramChatId: ''\n  },\n  company_a: {\n    clientId: 'company_a',\n    propertiesSheet: 'company_a_properties',\n    leadsSheet: 'company_a_leads',\n    companyName: 'Company A Real Estate',\n    assistantName: 'Sofia',\n    websiteUrl: 'https://example.com/company-a',\n    market: 'Romania',\n    serviceAreas: ['Bucharest'],\n    companyStrengths: [\n      'local real estate expertise',\n      'fast viewing coordination',\n      'support for buyers, renters, sellers, and investors'\n    ],\n    telegramChatId: ''\n  },\n  company_b: {\n    clientId: 'company_b',\n    propertiesSheet: 'company_b_properties',\n    leadsSheet: 'company_b_leads',\n    companyName: 'Company B Properties',\n    assistantName: 'Sofia',\n    websiteUrl: 'https://example.com/company-b',\n    market: 'Romania',\n    serviceAreas: ['Bucharest'],\n    companyStrengths: [\n      'local real estate expertise',\n      'fast viewing coordination',\n      'support for buyers, renters, sellers, and investors'\n    ],\n    telegramChatId: ''\n  },\n  godubai: {\n    clientId: 'godubai',\n    propertiesSheet: 'godubai_properties',\n    leadsSheet: 'godubai_leads',\n    companyName: 'GoDubai Portal',\n    assistantName: 'Sofia',\n    websiteUrl: 'https://www.godubai.estate/',\n    market: 'Dubai & UAE',\n    serviceAreas: ['Dubai', 'UAE', 'Business Bay', 'Dubai South', 'Dubai Design District (D3)'],\n    companyStrengths: [\n      'verified Dubai and UAE off-plan project listings',\n      'personalized Dubai investment plan flow',\n      'support for brokers, investors, and property buyers',\n      'human-verified exclusive real estate leads for brokers',\n      'fast support and sales follow-up'\n    ],\n    telegramChatId: ''\n  }\n};\n\nconst clientConfig = clients[d.clientId] || clients.godubai || clients.default;\n\nreturn Object.assign({}, d, {\n  clientId: clientConfig.clientId,\n  clientConfig: clientConfig\n});"
       },
       "id": "resolve-client-config",
       "name": "Resolve Client Config",
@@ -699,5 +699,13 @@
   "meta": {
     "templateCreatedBy": "Real Estate AI Demo - Milestone 3",
     "instanceId": "re-ai-demo"
-  }
+  },
+  "tags": [
+    {
+      "name": "real-estate-ai-agent"
+    },
+    {
+      "name": "multi-client-template"
+    }
+  ]
 }
