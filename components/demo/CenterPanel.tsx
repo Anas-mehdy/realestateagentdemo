@@ -34,7 +34,7 @@ export default function CenterPanel({
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-800">{client.assistantName}</p>
-            <p className="truncate text-xs text-slate-500">AI Property Assistant - {client.companyName}</p>
+            <p className="truncate text-xs text-slate-500">Property Assistant - {client.companyName}</p>
           </div>
         </div>
 

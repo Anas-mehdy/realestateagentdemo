@@ -45,7 +45,7 @@ export function createMessage(
 }
 
 export const SOFIA_GREETING =
-  "Hi there! 👋 I'm Sofia, your AI property assistant. Whether you're looking to buy, rent, sell, or invest — I'm here to help you find exactly what you need. What brings you here today?";
+  "Hi there! 👋 I'm Sofia, your property assistant. Whether you're looking to buy, rent, sell, or invest — I'm here to help you find exactly what you need. What brings you here today?";
 
 // ── System event helpers ─────────────────────────────────────
 export function createSystemEvent(

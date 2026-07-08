@@ -307,7 +307,7 @@ export function buildMockResponse(
   if (textClean.includes('weather') || textClean.includes('sport')) {
     reply = "I'm focused on helping with real estate — is there a property question I can help you with? 🏠";
   } else if (textClean.includes('are you ai') || textClean.includes('are you an ai')) {
-    reply = `I'm an AI property assistant for ${clientConfig.companyName}, here to help qualify your needs and connect you with the team.`;
+    reply = `I'm Sofia, your property assistant for ${clientConfig.companyName}, here to help qualify your needs and connect you with the team.`;
   } else if (requested_action === 'schedule_viewing') {
     if (!hasContact) {
       reply = `Of course. I can pass a viewing request to ${clientConfig.companyName}. What's your name and the best phone number or email for the team to reach you?`;

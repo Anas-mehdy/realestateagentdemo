@@ -82,7 +82,7 @@ export const demoClients: Record<string, DemoClientConfig> = {
     ],
     propertyTypes: ['apartments', 'houses', 'investment properties'],
     welcomeMessage:
-      "Hi there. I'm Sofia, the AI property assistant for PropAssist Demo. I can help qualify what you need, suggest the closest matching properties, and connect you with the team for viewings, valuations, or follow-up. What are you looking for today?",
+      "Hi there. I'm Sofia, the property assistant for PropAssist Demo. I can help qualify what you need, suggest the closest matching properties, and connect you with the team for viewings, valuations, or follow-up. What are you looking for today?",
     demoPromptGroups: defaultPromptGroups,
     n8nClientId: 'default',
   },
@@ -101,7 +101,7 @@ export const demoClients: Record<string, DemoClientConfig> = {
     ],
     propertyTypes: ['apartments', 'houses', 'investment properties'],
     welcomeMessage:
-      "Welcome to Company A Real Estate. I'm Sofia, your AI property assistant. Tell me what you want to buy, rent, sell, or invest in, and I will qualify your needs and guide you toward the strongest next step.",
+      "Welcome to Company A Real Estate. I'm Sofia, your property assistant. Tell me what you want to buy, rent, sell, or invest in, and I will qualify your needs and guide you toward the strongest next step.",
     demoPromptGroups: defaultPromptGroups,
     n8nClientId: 'company_a',
   },
@@ -120,7 +120,7 @@ export const demoClients: Record<string, DemoClientConfig> = {
     ],
     propertyTypes: ['apartments', 'houses', 'investment properties'],
     welcomeMessage:
-      "Hi, I'm Sofia, the AI property assistant for Company B Properties. Share your budget, location, and goal, and I will help narrow the options and connect you with the team when you are ready.",
+      "Hi, I'm Sofia, the property assistant for Company B Properties. Share your budget, location, and goal, and I will help narrow the options and connect you with the team when you are ready.",
     demoPromptGroups: defaultPromptGroups,
     n8nClientId: 'company_b',
   },
@@ -142,7 +142,7 @@ export const demoClients: Record<string, DemoClientConfig> = {
     ],
     propertyTypes: ['off-plan apartments', 'villas', 'penthouses', 'townhouses', 'investment properties'],
     welcomeMessage:
-      "Welcome to GoDubai Portal. I'm Sofia, the AI property assistant for GoDubai. I can help narrow down Dubai off-plan projects, understand your budget and investment goal, and connect you with the team for a shortlist or follow-up. What are you looking for today?",
+      "Welcome to GoDubai Portal. I'm Sofia, your property assistant for GoDubai. I can help narrow down Dubai off-plan projects, understand your budget and investment goal, and connect you with the team for a shortlist or follow-up. What are you looking for today?",
     demoPromptGroups: [
       {
         title: 'Dubai Investment',
