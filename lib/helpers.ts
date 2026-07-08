@@ -86,9 +86,9 @@ export function mergeLead(current: Lead, incoming: Partial<Lead>): Lead {
 }
 
 // ── Formatting ───────────────────────────────────────────────
-export function formatCurrency(value: number | null, currency = 'EUR'): string {
+export function formatCurrency(value: number | null, currency = 'AED'): string {
   if (value === null || value === undefined) return '—';
-  return new Intl.NumberFormat('en-EU', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
     maximumFractionDigits: 0,

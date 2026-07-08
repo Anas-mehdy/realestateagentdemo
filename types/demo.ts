@@ -53,7 +53,15 @@ export interface LeadCapture {
   name: string | null;
   phone: string | null;
   email: string | null;
-  requested_action: 'more_details' | 'schedule_viewing' | 'speak_to_agent' | 'valuation_request' | 'general_question' | null;
+  requested_action:
+    | 'more_details'
+    | 'schedule_viewing'
+    | 'speak_to_agent'
+    | 'valuation_request'
+    | 'general_question'
+    | 'shortlist_request'
+    | 'broker_leads_request'
+    | null;
   selected_property_id: string | null;
   selected_property_title: string | null;
   preferred_date_time: string | null;

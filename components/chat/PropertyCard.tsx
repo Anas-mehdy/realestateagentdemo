@@ -10,8 +10,8 @@ interface PropertyCardProps {
 export default function PropertyCard({ property }: PropertyCardProps) {
   const price =
     property.deal_type === 'rent'
-      ? `${formatCurrency(property.price_per_month)}/mo`
-      : formatCurrency(property.price);
+      ? `${formatCurrency(property.price_per_month, property.currency)}/mo`
+      : formatCurrency(property.price, property.currency);
 
   const availabilityColor =
     property.availability === 'available'

@@ -201,6 +201,6 @@ export const demoClients: Record<string, DemoClientConfig> = {
 };
 
 export function getDemoClient(clientId?: string | null): DemoClientConfig {
-  if (!clientId) return demoClients.default;
-  return demoClients[clientId] ?? demoClients.default;
+  if (!clientId) return demoClients.godubai;
+  return demoClients[clientId] ?? demoClients.godubai;
 }

@@ -45,6 +45,8 @@ const ACTION_LABELS: Record<string, string> = {
   speak_to_agent: '👤 Speak to agent',
   valuation_request: '🏷️ Valuation request',
   general_question: '❓ General question',
+  shortlist_request: '📋 Shortlist request',
+  broker_leads_request: '🤝 Broker leads request',
 };
 
 const CAPTURE_STATUS_CFG: Record<string, { label: string; style: string }> = {
@@ -112,7 +114,7 @@ export default function LeadPreview({ lead, leadCapture }: LeadPreviewProps) {
             <Field label="City" value={lead.city} />
             <Field
               label="Budget"
-              value={lead.budget ? formatCurrency(lead.budget) : null}
+              value={lead.budget ? formatCurrency(lead.budget, 'AED') : null}
             />
             <Field
               label="Bedrooms"
