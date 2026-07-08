@@ -59,6 +59,7 @@ const CAPTURE_STATUS_CFG: Record<string, { label: string; style: string }> = {
 };
 
 export default function LeadPreview({ lead, leadCapture }: LeadPreviewProps) {
+  const isBrokerLeadRequest = leadCapture.requested_action === 'broker_leads_request';
   const hasLeadData = lead.intent || lead.city || lead.budget || lead.bedrooms;
   const hasCaptureData = leadCapture.name || leadCapture.phone || leadCapture.email || leadCapture.requested_action;
 
@@ -101,9 +102,15 @@ export default function LeadPreview({ lead, leadCapture }: LeadPreviewProps) {
       {/* ── SECTION 1: SEARCH CRITERIA ── */}
       <div className="border-t border-slate-100 pt-3">
         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-          Qualifications
+          {isBrokerLeadRequest ? 'Broker Request' : 'Qualifications'}
         </h4>
-        {!hasLeadData ? (
+        {isBrokerLeadRequest ? (
+          <div className="space-y-0">
+            <Field label="Request Type" value="Verified buyer leads" />
+            <Field label="Market" value={lead.city || 'Dubai / UAE'} />
+            <Field label="Next Step" value="Sales discussion" />
+          </div>
+        ) : !hasLeadData ? (
           <p className="text-xs text-slate-400 italic py-1">No qualifications detected yet.</p>
         ) : (
           <div className="space-y-0">
@@ -150,7 +157,7 @@ export default function LeadPreview({ lead, leadCapture }: LeadPreviewProps) {
             <Field
               label="Selected Property"
               value={
-                leadCapture.selected_property_id
+                !isBrokerLeadRequest && leadCapture.selected_property_id
                   ? `${leadCapture.selected_property_id} · ${leadCapture.selected_property_title}`
                   : null
               }
