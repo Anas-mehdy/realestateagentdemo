@@ -21,7 +21,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
       : 'text-slate-500 bg-slate-100';
 
   return (
-    <div className="mt-2 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 max-w-sm">
+    <div className="mt-2 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 max-w-sm w-full">
       {/* Image */}
       <div className="relative h-36 bg-slate-100 overflow-hidden">
         <img

@@ -22,7 +22,7 @@ export default function LeftPanel({ client, onScenarioSelect, isTyping }: LeftPa
 
   return (
     <aside className="flex flex-col gap-5 h-full overflow-y-auto pr-1">
-      <div>
+      <div className="hidden xl:block">
         <div className="flex items-center gap-2.5 mb-2.5">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-700 to-blue-900 flex items-center justify-center shadow-md overflow-hidden">
             {client.logoUrl ? (
@@ -94,35 +94,6 @@ export default function LeftPanel({ client, onScenarioSelect, isTyping }: LeftPa
         </div>
       </div>
 
-      <div className="border-t border-slate-100 pt-3">
-        <h2 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-          Demo Features
-        </h2>
-        <ul className="space-y-1.5">
-          {[
-            `Uses ${client.companyName} context`,
-            'Qualifies customer intent and budget',
-            'Searches the selected property sheet',
-            'Recommends the strongest factual match',
-            'Captures serious leads naturally',
-            'Sends sales alerts when ready',
-          ].map((point, i) => (
-            <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-600">
-              <svg className="w-3.5 h-3.5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-              {point}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="text-[10px] text-slate-400 border-t border-slate-100 pt-3 leading-relaxed">
-        <p className="font-semibold text-slate-500 mb-0.5">Client Setup</p>
-        <p>
-          Current client id: {client.clientId}. The same frontend and workflow are reused with client-specific sheets and prompts.
-        </p>
-      </div>
     </aside>
   );
 }

@@ -19,7 +19,7 @@ export default function ChatWindow({ messages, isTyping }: ChatWindowProps) {
   }, [messages, isTyping]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
+    <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4 min-h-0 sm:px-4 sm:py-4">
       {messages.map((message) => (
         <MessageBubble key={message.id} message={message} />
       ))}

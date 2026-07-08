@@ -25,7 +25,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   if (isUser) {
     return (
       <div className="flex justify-end gap-2.5 message-enter">
-        <div className="max-w-[78%]">
+        <div className="max-w-[86%] sm:max-w-[78%]">
           <div className="bg-blue-800 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed shadow-sm">
             {message.content}
           </div>
@@ -44,7 +44,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
         <span className="text-white text-xs font-bold">S</span>
       </div>
 
-      <div className="max-w-[82%]">
+      <div className="min-w-0 max-w-[88%] sm:max-w-[82%]">
         {/* Name label on first assistant message or when useful */}
         <p className="text-xs font-medium text-blue-700 mb-1 ml-0.5">Sofia</p>
 

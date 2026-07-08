@@ -24,7 +24,7 @@ export default function RightPanel({ lead, leadCapture, systemEvents }: RightPan
       </div>
 
       {/* Info note */}
-      <div className="text-xs text-slate-400 text-center leading-relaxed px-1">
+      <div className="hidden text-xs text-slate-400 text-center leading-relaxed px-1 xl:block">
         This panel updates in real time as Sofia processes the conversation through the n8n workflow.
       </div>
     </aside>

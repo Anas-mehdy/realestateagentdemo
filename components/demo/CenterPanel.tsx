@@ -24,17 +24,17 @@ export default function CenterPanel({
 }: CenterPanelProps) {
   return (
     <div className="flex flex-col h-full min-h-0 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-white flex-shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 px-3 py-3 border-b border-slate-100 bg-white flex-shrink-0 sm:px-4">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="relative">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shadow-sm">
               <span className="text-white text-sm font-bold">{client.assistantName.charAt(0)}</span>
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-800">{client.assistantName}</p>
-            <p className="text-xs text-slate-500">AI Property Assistant - {client.companyName}</p>
+            <p className="truncate text-xs text-slate-500">AI Property Assistant - {client.companyName}</p>
           </div>
         </div>
 
